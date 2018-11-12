@@ -1,0 +1,113 @@
+#!/usr/bin/env ruby
+require 'fileutils'
+
+class Changelog
+  NEWLINE = $-0
+  BACKUP = false
+
+  def perform
+    @changelog = generate_changelog
+    backup_old_changelog if backup? && old_changelog_exists?
+    write_changelog
+  end
+
+  private
+
+  def generate_changelog
+    previous_tag = nil
+    tag_count = tags.size
+
+    result = tags.collect do |tag|
+      output = ""
+
+      if previous_tag.nil?
+        tag_string = tag
+      else
+        tag_string = "#{previous_tag}..#{tag}"
+      end
+      puts "Processing #{tag_string}"
+
+      output << tag_changelog(tag, tag_string)
+
+      previous_tag = tag
+
+      output
+    end
+    result << unversioned_changelog
+    result << "# Changelog#{NEWLINE}"
+
+    result.reverse.join("\r\n")
+  end
+
+  def unversioned_changelog
+    tag = tags.last
+    tag_string = "#{tag}.."
+
+    tag_changelog(nil, tag_string)
+  end
+
+  def old_changelog_exists?
+    File.exist?(filename)
+  end
+
+  def backup_old_changelog
+    FileUtils.mv(filename, "#{filename}~")
+  end
+
+  def write_changelog
+    File.open(filename, 'w') { |f| f.write(@changelog) }
+  end
+
+  def tags
+    @tags ||= %x{git tag -l}.split(/\n/)
+  end
+
+  def tag_changelog(tag, tag_string)
+    if tag.nil?
+      output = "## Scheduled for next version#{NEWLINE}"
+    else
+      output = "## #{tag}#{NEWLINE}"
+    end
+    output << NEWLINE
+    ask_git_for_tag_changelog(tag_string).lines.each do |line|
+      line.chomp!
+      next if line.empty?
+      output << "* #{process_line(line)}"
+      output << NEWLINE
+    end
+    output
+  end
+
+  def filename
+    filename ||= 'CHANGELOG.md'
+  end
+
+  def backup?
+    BACKUP
+  end
+
+  def ask_git_for_tag_changelog(tag_string)
+    %x{git log #{tag_string} --pretty="%B"}
+  end
+
+  def process_line(line)
+    line
+  end
+end
+
+class PublicChangelog < Changelog
+  def ask_git_for_tag_changelog(tag_string)
+    %x{git log #{tag_string} --pretty="%B" | grep "#public"}
+  end
+
+  def filename
+    filename ||= 'CHANGELOG.public.md'
+  end
+
+  def process_line(line)
+    line.chomp('#public').chomp.strip
+  end
+end
+
+Changelog.new.perform
+PublicChangelog.new.perform
