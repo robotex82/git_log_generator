@@ -87,7 +87,7 @@ class Changelog
   end
 
   def ask_git_for_tag_changelog(tag_string)
-    %x{git log #{tag_string} --pretty="%B"}
+    %x{git log #{tag_string} --pretty="%B" --no-merges}
   end
 
   def process_line(line)
@@ -97,7 +97,7 @@ end
 
 class PublicChangelog < Changelog
   def ask_git_for_tag_changelog(tag_string)
-    %x{git log #{tag_string} --pretty="%B" | grep "#public"}
+    %x{git log #{tag_string} --pretty="%B" --no-merges | grep "#public"}
   end
 
   def filename
