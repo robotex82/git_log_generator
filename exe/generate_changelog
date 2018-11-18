@@ -41,7 +41,11 @@ class Changelog
 
   def unversioned_changelog
     tag = tags.last
-    tag_string = "#{tag}.."
+    if tags.any?
+      tag_string = "#{tag}.."
+    else
+      tag_string = nil
+    end
 
     tag_changelog(nil, tag_string)
   end
